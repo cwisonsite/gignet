@@ -1,0 +1,19 @@
+{
+  "name": "GigNet — Gig Order Profit Calculator",
+  "short_name": "GigNet",
+  "description": "Mobile-first gig delivery net profit calculator and session dashboard.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1116",
+  "theme_color": "#0e1116",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

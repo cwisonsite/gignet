@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e1116" />
+  <meta name="description" content="Mobile-first Gig Order Net Profit Calculator and Session Dashboard with real-time fuel, maintenance reserves, IRS mileage reference, and local session logging." />
+  <title>GigNet — Gig Order Net Profit Calculator</title>
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- Sticky Top Bar -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">$</div>
+        <div>
+          <h1>GigNet</h1>
+          <span class="brand-sub">Order Profit &amp; Session Log</span>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <button id="open-settings-chip" type="button" class="rate-chip tabular" title="Edit vehicle cost assumptions">
+          Cost: <span id="header-cost-per-mile">$0.30/mi</span>
+        </button>
+        <button id="theme-toggle" type="button" class="icon-btn" aria-label="Toggle light and dark theme" title="Toggle light/dark mode">
+          <svg id="theme-icon-sun" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          <svg id="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+        <button id="open-settings-btn" type="button" class="icon-btn" aria-label="Open cost assumptions and thresholds" title="Settings &amp; Assumptions">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <!-- Left Column: Quick Entry & Live Profit Evaluation -->
+    <div class="column">
+      <section class="card" aria-label="Quick Order Entry">
+        <div class="card-header">
+          <h2 class="card-title">Quick Offer Check</h2>
+          <button id="clear-inputs-btn" type="button" class="text-btn">Clear</button>
+        </div>
+
+        <form id="offer-form" novalidate>
+          <div class="primary-inputs">
+            <div class="field">
+              <label for="input-pay">Offer Pay ($)</label>
+              <div class="input-wrap">
+                <span class="input-prefix">$</span>
+                <input id="input-pay" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" class="big-input has-prefix" autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="input-miles">Offer Miles</label>
+              <div class="input-wrap">
+                <input id="input-miles" type="number" inputmode="decimal" step="0.1" min="0" placeholder="0.0" class="big-input has-suffix" autocomplete="off" />
+                <span class="input-suffix">mi</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="trip-mode-bar">
+            <div class="trip-toggle" role="group" aria-label="Trip mileage mode">
+              <button id="mode-round-trip" type="button" class="trip-toggle-btn" aria-pressed="true">Round Trip (2&times;)</button>
+              <button id="mode-one-way" type="button" class="trip-toggle-btn" aria-pressed="false">One-Way (1&times;)</button>
+            </div>
+            <span id="driven-miles-hint" class="driven-miles-hint tabular">2&times; round-trip active</span>
+          </div>
+
+          <div class="secondary-inputs">
+            <div class="field">
+              <label for="input-minutes">Est. Mins</label>
+              <div class="input-wrap">
+                <input id="input-minutes" type="number" inputmode="numeric" step="1" min="0" placeholder="Opt." class="std-input has-suffix" autocomplete="off" />
+                <span class="input-suffix">min</span>
+              </div>
+            </div>
+
+            <div id="platform-field" class="field hidden">
+              <label for="input-platform">Platform</label>
+              <select id="input-platform" class="std-select">
+                <option value="DoorDash">DoorDash</option>
+                <option value="Uber Eats">Uber Eats</option>
+                <option value="Instacart">Instacart</option>
+                <option value="Spark">Spark</option>
+                <option value="Grubhub">Grubhub</option>
+                <option value="Amazon Flex">Amazon Flex</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div id="notes-inline-slot" class="field">
+              <label for="input-notes">Notes (optional)</label>
+              <input id="input-notes" type="text" maxlength="120" placeholder="e.g., Shop &amp; pay, heavy traffic" class="std-input" autocomplete="off" />
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <!-- Instant Live Result Card -->
+      <section class="card" aria-label="Live Net Profit Result">
+        <div id="verdict-banner" class="verdict-banner" data-verdict="idle">
+          <div class="verdict-left">
+            <span id="verdict-label" class="verdict-label">ENTER OFFER</span>
+            <span id="verdict-reason" class="verdict-reason">Type offer pay and trip miles for an instant verdict.</span>
+          </div>
+          <div class="verdict-net">
+            <span class="verdict-net-label">True Net Pay</span>
+            <span id="result-net-pay" class="verdict-net-value tabular">$0.00</span>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <div class="metric-box">
+            <span class="metric-label">Net $/Mile</span>
+            <span id="result-net-mile" class="metric-value tabular">—</span>
+            <span id="result-gross-mile" class="metric-sub tabular">Gross: —</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Net $/Hr</span>
+            <span id="result-net-hour" class="metric-value tabular">—</span>
+            <span id="result-gross-hour" class="metric-sub tabular">Add mins</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Veh. Cost</span>
+            <span id="result-op-cost" class="metric-value tabular">$0.00</span>
+            <span id="result-op-rate" class="metric-sub tabular">$0.30/mi</span>
+          </div>
+        </div>
+
+        <!-- Visual Cost Breakdown Bar & Pills -->
+        <div class="cost-section">
+          <div class="cost-header">
+            <span>Vehicle Operating Cost Breakdown</span>
+            <span id="cost-breakdown-total" class="tabular">$0.00</span>
+          </div>
+          <div class="cost-bar" role="img" aria-label="Proportional cost breakdown bar">
+            <div id="seg-gas" class="cost-seg seg-gas" style="width: 0%"></div>
+            <div id="seg-repair" class="cost-seg seg-repair" style="width: 0%"></div>
+            <div id="seg-oil" class="cost-seg seg-oil" style="width: 0%"></div>
+            <div id="seg-tire" class="cost-seg seg-tire" style="width: 0%"></div>
+            <div id="seg-extra" class="cost-seg seg-extra" style="width: 0%"></div>
+          </div>
+          <div class="cost-pills tabular">
+            <span class="cost-pill"><span class="dot seg-gas"></span>Gas <strong id="pill-gas">$0.00</strong></span>
+            <span class="cost-pill"><span class="dot seg-repair"></span>Repairs <strong id="pill-repair">$0.00</strong></span>
+            <span class="cost-pill"><span class="dot seg-oil"></span>Oil <strong id="pill-oil">$0.00</strong></span>
+            <span class="cost-pill"><span class="dot seg-tire"></span>Tires <strong id="pill-tire">$0.00</strong></span>
+            <span id="pill-extra-wrap" class="cost-pill hidden"><span class="dot seg-extra"></span>Extra <strong id="pill-extra">$0.00</strong></span>
+          </div>
+        </div>
+
+        <!-- Clean Summary Ledger -->
+        <div class="ledger tabular">
+          <div class="ledger-row">
+            <span>Gross Offer Pay</span>
+            <strong id="ledger-gross">$0.00</strong>
+          </div>
+          <div class="ledger-row">
+            <span>Total Vehicle Operating Cost</span>
+            <strong id="ledger-op-cost">-$0.00</strong>
+          </div>
+          <div class="ledger-row highlight">
+            <span>True Net Pay</span>
+            <strong id="ledger-net">$0.00</strong>
+          </div>
+          <div id="ledger-optional-row" class="ledger-row hidden">
+            <span id="ledger-optional-label">After Optional Buffer / Tax Set-Aside</span>
+            <strong id="ledger-optional-val">$0.00</strong>
+          </div>
+          <div class="ledger-row irs-ref">
+            <span>2026 IRS Mileage Deduction Ref (<span id="irs-rate-label">$0.76</span>/mi)</span>
+            <strong id="ledger-irs-ref">$0.00</strong>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button id="log-order-btn" type="button" class="btn btn-primary" disabled>
+            Log Order to Session
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right Column: Session Dashboard & History Log -->
+    <div class="column">
+      <section class="card" aria-label="Session Dashboard">
+        <div class="card-header">
+          <h2 class="card-title">Session Dashboard</h2>
+          <span id="session-count-badge" class="rate-tag tabular">0 orders</span>
+        </div>
+
+        <div class="session-kpis tabular">
+          <div class="kpi-tile net-accent">
+            <span class="metric-label">True Net</span>
+            <span id="session-net" class="metric-value">$0.00</span>
+          </div>
+          <div class="kpi-tile">
+            <span class="metric-label">Gross Pay</span>
+            <span id="session-gross" class="metric-value">$0.00</span>
+          </div>
+          <div class="kpi-tile">
+            <span class="metric-label">Net $/Mi</span>
+            <span id="session-net-mile" class="metric-value">—</span>
+          </div>
+          <div class="kpi-tile">
+            <span class="metric-label">Net $/Hr</span>
+            <span id="session-net-hour" class="metric-value">—</span>
+          </div>
+        </div>
+
+        <div class="session-subbar tabular">
+          <span>Miles: <strong id="session-miles">0.0 mi</strong></span>
+          <span>Veh. Cost: <strong id="session-op-cost">$0.00</strong></span>
+          <span>IRS Ref: <strong id="session-irs-ref">$0.00</strong></span>
+        </div>
+
+        <div class="session-toolbar">
+          <div class="toolbar-group">
+            <button id="export-csv-btn" type="button" class="btn btn-secondary" disabled>Export CSV</button>
+            <button id="export-json-btn" type="button" class="btn btn-secondary" disabled>Export JSON</button>
+          </div>
+          <button id="clear-session-btn" type="button" class="btn btn-danger-ghost" disabled>Clear Session</button>
+        </div>
+
+        <div id="order-list" class="order-list">
+          <div class="empty-state">
+            No orders logged yet. Punch in an offer and tap <strong>Log Order to Session</strong> to track your shift totals.
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Settings / Assumptions Slide-Over Drawer -->
+  <div id="drawer-backdrop" class="drawer-backdrop" aria-hidden="true"></div>
+  <aside id="settings-drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="drawer-header">
+      <h2 id="drawer-title">Cost Assumptions &amp; Thresholds</h2>
+      <button id="close-settings-btn" type="button" class="icon-btn" aria-label="Close settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- Fuel -->
+      <div class="settings-group">
+        <div class="settings-group-title">
+          <span>Fuel (Ohio / Town &amp; Country Baseline)</span>
+          <span id="rate-gas-tag" class="rate-tag">$0.219/mi</span>
+        </div>
+        <div class="settings-row">
+          <div class="field">
+            <label for="set-gas-price">Gas Price ($/gal)</label>
+            <input id="set-gas-price" type="number" inputmode="decimal" step="0.01" min="0" class="std-input tabular" />
+          </div>
+          <div class="field">
+            <label for="set-mpg">Fuel Economy (MPG)</label>
+            <input id="set-mpg" type="number" inputmode="decimal" step="0.1" min="1" class="std-input tabular" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Repair Reserve -->
+      <div class="settings-group">
+        <div class="settings-group-title">
+          <span>Repair Reserve</span>
+          <span id="rate-repair-tag" class="rate-tag">$0.050/mi</span>
+        </div>
+        <div class="settings-row">
+          <div class="field">
+            <label for="set-repair-cost">Reserve ($)</label>
+            <input id="set-repair-cost" type="number" inputmode="decimal" step="10" min="0" class="std-input tabular" />
+          </div>
+          <div class="field">
+            <label for="set-repair-interval">Every (miles)</label>
+            <input id="set-repair-interval" type="number" inputmode="numeric" step="500" min="100" class="std-input tabular" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Oil Change Reserve -->
+      <div class="settings-group">
+        <div class="settings-group-title">
+          <span>Oil Change Reserve</span>
+          <span id="rate-oil-tag" class="rate-tag">$0.013/mi</span>
+        </div>
+        <div class="settings-row">
+          <div class="field">
+            <label for="set-oil-cost">Oil Change ($)</label>
+            <input id="set-oil-cost" type="number" inputmode="decimal" step="1" min="0" class="std-input tabular" />
+          </div>
+          <div class="field">
+            <label for="set-oil-interval">Every (miles)</label>
+            <input id="set-oil-interval" type="number" inputmode="numeric" step="500" min="100" class="std-input tabular" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Tire Wear & Tear -->
+      <div class="settings-group">
+        <div class="settings-group-title">
+          <span>Tire Wear &amp; Tear</span>
+          <span id="rate-tire-tag" class="rate-tag">$0.015/mi</span>
+        </div>
+        <div class="settings-row">
+          <div class="field">
+            <label for="set-tire-cost">Tire Set ($)</label>
+            <input id="set-tire-cost" type="number" inputmode="decimal" step="10" min="0" class="std-input tabular" />
+          </div>
+          <div class="field">
+            <label for="set-tire-interval">Tire Life (miles)</label>
+            <input id="set-tire-interval" type="number" inputmode="numeric" step="1000" min="1000" class="std-input tabular" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Optional Extra Reserves -->
+      <div class="settings-group">
+        <div class="settings-group-title">
+          <span>Optional Extra Reserves</span>
+          <span id="rate-extra-tag" class="rate-tag">Off</span>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label">
+            <strong>Custom Buffer (Brakes / Misc)</strong>
+            <span>Optional per-mile &amp; per-order cushion</span>
+          </div>
+          <label class="switch">
+            <input id="set-extra-enabled" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div id="extra-buffer-fields" class="settings-row hidden">
+          <div class="field">
+            <label for="set-extra-mile">Extra $/Mile</label>
+            <input id="set-extra-mile" type="number" inputmode="decimal" step="0.01" min="0" class="std-input tabular" />
+          </div>
+          <div class="field">
+            <label for="set-extra-order">Extra $/Order</label>
+            <input id="set-extra-order" type="number" inputmode="decimal" step="0.25" min="0" class="std-input tabular" />
+          </div>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label">
+            <strong>Self-Employment Tax Set-Aside</strong>
+            <span>Shown separately from vehicle operating cost</span>
+          </div>
+          <label class="switch">
+            <input id="set-tax-enabled" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div id="tax-fields" class="settings-row hidden">
+          <div class="field">
+            <label for="set-tax-pct">Tax Set-Aside (%)</label>
+            <input id="set-tax-pct" type="number" inputmode="decimal" step="1" min="0" max="60" class="std-input tabular" />
+          </div>
+          <div class="field">
+            <label for="set-irs-rate">IRS Mileage Ref ($/mi)</label>
+            <input id="set-irs-rate" type="number" inputmode="decimal" step="0.01" min="0" class="std-input tabular" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Decision Thresholds -->
+      <div class="settings-group">
+        <div class="settings-group-title">
+          <span>Accept / Borderline Thresholds</span>
+        </div>
+        <div class="settings-row">
+          <div class="field">
+            <label for="set-accept-mile">Accept Net $/Mi</label>
+            <input id="set-accept-mile" type="number" inputmode="decimal" step="0.05" min="0" class="std-input tabular" />
+          </div>
+          <div class="field">
+            <label for="set-border-mile">Borderline $/Mi</label>
+            <input id="set-border-mile" type="number" inputmode="decimal" step="0.05" min="0" class="std-input tabular" />
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="field">
+            <label for="set-accept-hour">Accept Net $/Hr</label>
+            <input id="set-accept-hour" type="number" inputmode="decimal" step="1" min="0" class="std-input tabular" />
+          </div>
+          <div class="field">
+            <label for="set-border-hour">Borderline $/Hr</label>
+            <input id="set-border-hour" type="number" inputmode="decimal" step="1" min="0" class="std-input tabular" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Display & Trip Defaults -->
+      <div class="settings-group">
+        <div class="settings-group-title">
+          <span>Display &amp; Trip Defaults</span>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label">
+            <strong>Default to Round Trip (2&times; miles)</strong>
+            <span>Automatically double app-shown offer miles</span>
+          </div>
+          <label class="switch">
+            <input id="set-default-round-trip" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label">
+            <strong>Show Gig App / Platform</strong>
+            <span>Show DoorDash / Uber Eats / etc. selector</span>
+          </div>
+          <label class="switch">
+            <input id="set-show-platform" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="drawer-footer">
+      <button id="reset-defaults-btn" type="button" class="btn btn-danger-ghost">Reset Defaults</button>
+      <button id="done-settings-btn" type="button" class="btn btn-secondary">Done</button>
+    </div>
+  </aside>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="./app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
