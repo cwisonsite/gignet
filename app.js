@@ -651,7 +651,6 @@ function renderTreeNodeHTML(node) {
   }
   subParts.push(orderCountStr);
   subParts.push(`${s.totalMiles.toFixed(1)} mi`);
-  subParts.push(`Gross ${formatCurrency(s.grossPay)}`);
   subParts.push(`IRS ${formatCurrency(s.irsDeductionRef)}`);
 
   let childrenHTML = '';
@@ -671,13 +670,14 @@ function renderTreeNodeHTML(node) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
           </span>
           <div class="tree-info">
-            <div class="tree-top-line">
-              <span class="tree-label">${escapeHTML(node.label)}</span>
-              <span class="${netClass} tabular">${formatCurrency(s.trueNetPay)}</span>
-            </div>
+            <span class="tree-label">${escapeHTML(node.label)}</span>
             <div class="tree-meta-line tabular">
               <span>${escapeHTML(subParts.join(' · '))}</span>
             </div>
+          </div>
+          <div class="tree-amounts tabular">
+            <span class="${netClass}">${formatCurrency(s.trueNetPay)}</span>
+            <span class="tree-gross">Gross ${formatCurrency(s.grossPay)}</span>
           </div>
         </button>
         <button

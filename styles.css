@@ -1220,14 +1220,7 @@ input[type="number"] {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.tree-top-line {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 3px;
 }
 
 .tree-label {
@@ -1239,15 +1232,32 @@ input[type="number"] {
   text-overflow: ellipsis;
 }
 
+.tree-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 1px;
+  padding-right: 4px;
+}
+
 .tree-net {
-  font-size: 0.92rem;
+  font-size: 0.96rem;
   font-weight: 800;
   color: var(--accept-text);
-  flex-shrink: 0;
+  line-height: 1.15;
 }
 
 .tree-net.is-negative {
   color: var(--decline-text);
+}
+
+.tree-gross {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--borderline-text);
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .tree-meta-line {
