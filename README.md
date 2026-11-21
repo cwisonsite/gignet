@@ -1,14 +1,14 @@
 # GigNet — Gig Order Net Profit Calculator & Session Dashboard
 
-A fast, zero-dependency, mobile-first web app for evaluating gig delivery offers (DoorDash, Uber Eats, Instacart, Spark, Grubhub, etc.) in real time and logging shift totals.
+A fast, zero-dependency, mobile-first web app for evaluating gig delivery offers (DoorDash, Uber Eats, Instacart, Spark, Grubhub, etc.) in real time, logging daily sessions that automatically close at midnight, and tracking/exporting income & IRS mileage over time.
 
 ## Project Structure
 
-- `index.html` — Mobile-first semantic layout with thumb-friendly inputs, live verdict card, session dashboard, and slide-over assumptions drawer.
+- `index.html` — Mobile-first semantic layout with thumb-friendly inputs, live verdict card, Today's Session dashboard, collapsible Daily/Weekly/Monthly/Yearly history tree, Export Timeframe modal, and slide-over assumptions drawer.
 - `styles.css` — Responsive Vanilla CSS with Dark (night driving) and Light (daylight) themes, tabular numerals, and proportional cost breakdown bar.
-- `calculator.js` — Pure, framework-free ES module containing all cost math, verdict evaluation, session aggregation, and CSV export logic. Zero DOM dependencies so it can be reused directly in an Android overlay, WebView shell, or sync worker.
-- `storage.js` — Thin `localStorage` persistence wrapper for settings, logged orders, and theme preference.
-- `app.js` — Thin DOM controller wiring live updates, drawer state, order logging, and file exports.
+- `calculator.js` — Pure, framework-free ES module containing all cost math, verdict evaluation, local-midnight session grouping (Daily/Weekly/Monthly/Yearly), timeframe filtering, and tax-ready CSV export logic. Zero DOM dependencies so it can be reused directly in an Android overlay, WebView shell, or sync worker.
+- `storage.js` — Thin `localStorage` persistence wrapper for settings, logged orders, history view preference, and theme preference.
+- `app.js` — Thin DOM controller wiring live updates, midnight auto-rollover, collapsible history tree, drawer/modal state, order logging, and timeframe file exports.
 - `manifest.json` — PWA web app manifest for Add-to-Home-Screen installation.
 
 ## Default Cost Model (All Editable in Settings)

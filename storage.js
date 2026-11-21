@@ -11,7 +11,8 @@ import { DEFAULT_SETTINGS } from './calculator.js';
 const KEYS = {
   SETTINGS: 'gignet_settings_v1',
   ORDERS: 'gignet_orders_v1',
-  THEME: 'gignet_theme_v1'
+  THEME: 'gignet_theme_v1',
+  HISTORY_VIEW: 'gignet_history_view_v1'
 };
 
 function safeRead(key, fallback) {
@@ -66,6 +67,27 @@ export function loadTheme() {
 export function saveTheme(theme) {
   try {
     window.localStorage.setItem(KEYS.THEME, theme);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+const VALID_VIEWS = new Set(['daily', 'weekly', 'monthly', 'yearly']);
+
+export function loadHistoryView() {
+  try {
+    const saved = window.localStorage.getItem(KEYS.HISTORY_VIEW);
+    if (VALID_VIEWS.has(saved)) return saved;
+  } catch {
+    // ignore storage errors
+  }
+  return 'daily';
+}
+
+export function saveHistoryView(view) {
+  if (!VALID_VIEWS.has(view)) return;
+  try {
+    window.localStorage.setItem(KEYS.HISTORY_VIEW, view);
   } catch {
     // ignore storage errors
   }

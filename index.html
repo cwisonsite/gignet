@@ -189,11 +189,14 @@
       </section>
     </div>
 
-    <!-- Right Column: Session Dashboard & History Log -->
+    <!-- Right Column: Today's Session & Collapsible History -->
     <div class="column">
-      <section class="card" aria-label="Session Dashboard">
+      <section class="card" aria-label="Today's Session">
         <div class="card-header">
-          <h2 class="card-title">Session Dashboard</h2>
+          <div class="session-title-wrap">
+            <h2 class="card-title">Today's Session</h2>
+            <span id="today-date-label" class="session-date-sub">Resets at 12:00 AM</span>
+          </div>
           <span id="session-count-badge" class="rate-tag tabular">0 orders</span>
         </div>
 
@@ -224,15 +227,36 @@
 
         <div class="session-toolbar">
           <div class="toolbar-group">
-            <button id="export-csv-btn" type="button" class="btn btn-secondary" disabled>Export CSV</button>
-            <button id="export-json-btn" type="button" class="btn btn-secondary" disabled>Export JSON</button>
+            <button id="open-export-btn" type="button" class="btn btn-secondary" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export Timeframe
+            </button>
           </div>
-          <button id="clear-session-btn" type="button" class="btn btn-danger-ghost" disabled>Clear Session</button>
+          <button id="clear-today-btn" type="button" class="btn btn-danger-ghost" disabled>Clear Today</button>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Session History">
+        <div class="card-header">
+          <div class="session-title-wrap">
+            <h2 class="card-title">Session History</h2>
+            <span id="history-totals-sub" class="session-date-sub tabular">0 orders logged</span>
+          </div>
+          <div class="history-header-actions">
+            <button id="toggle-expand-all-btn" type="button" class="text-btn" disabled>Expand All</button>
+          </div>
         </div>
 
-        <div id="order-list" class="order-list">
+        <div class="view-switcher" role="tablist" aria-label="History grouping view">
+          <button type="button" class="view-tab" data-view="daily" role="tab" aria-selected="true">Daily</button>
+          <button type="button" class="view-tab" data-view="weekly" role="tab" aria-selected="false">Weekly</button>
+          <button type="button" class="view-tab" data-view="monthly" role="tab" aria-selected="false">Monthly</button>
+          <button type="button" class="view-tab" data-view="yearly" role="tab" aria-selected="false">Yearly</button>
+        </div>
+
+        <div id="history-tree" class="history-tree">
           <div class="empty-state">
-            No orders logged yet. Punch in an offer and tap <strong>Log Order to Session</strong> to track your shift totals.
+            No orders logged yet. Punch in an offer and tap <strong>Log Order to Session</strong> to start today's shift. Sessions automatically close each day at midnight.
           </div>
         </div>
       </section>
@@ -429,6 +453,20 @@
           </label>
         </div>
       </div>
+
+      <!-- Data Management -->
+      <div class="settings-group">
+        <div class="settings-group-title">
+          <span>Saved Session History</span>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-label">
+            <strong>Clear All Saved History</strong>
+            <span>Permanently deletes all days &amp; years</span>
+          </div>
+          <button id="clear-all-history-btn" type="button" class="btn btn-danger-ghost">Clear All</button>
+        </div>
+      </div>
     </div>
 
     <div class="drawer-footer">
@@ -436,6 +474,89 @@
       <button id="done-settings-btn" type="button" class="btn btn-secondary">Done</button>
     </div>
   </aside>
+
+  <!-- Export Timeframe & Tax Report Modal -->
+  <div id="export-backdrop" class="modal-backdrop" aria-hidden="true"></div>
+  <section id="export-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="export-modal-title" aria-hidden="true">
+    <div class="modal-header">
+      <div>
+        <h2 id="export-modal-title">Export Timeframe</h2>
+        <span class="modal-sub">Download order logs or tax-ready daily summaries</span>
+      </div>
+      <button id="close-export-btn" type="button" class="icon-btn" aria-label="Close export modal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="preset-pills" role="group" aria-label="Timeframe presets">
+        <button type="button" class="preset-pill" data-preset="today">Today</button>
+        <button type="button" class="preset-pill" data-preset="this-week">This Week</button>
+        <button type="button" class="preset-pill" data-preset="this-month">This Month</button>
+        <button type="button" class="preset-pill" data-preset="this-year">This Year</button>
+        <button type="button" class="preset-pill" data-preset="last-year">Last Year</button>
+        <button type="button" class="preset-pill" data-preset="all">All Time</button>
+      </div>
+
+      <div class="date-range-row">
+        <div class="field">
+          <label for="export-start-date">From Date</label>
+          <input id="export-start-date" type="date" class="std-input tabular" />
+        </div>
+        <div class="field">
+          <label for="export-end-date">To Date</label>
+          <input id="export-end-date" type="date" class="std-input tabular" />
+        </div>
+      </div>
+
+      <div class="export-preview tabular">
+        <div class="export-preview-head">
+          <strong id="export-range-label">Selected Timeframe</strong>
+          <span id="export-match-badge" class="rate-tag">0 orders</span>
+        </div>
+        <div class="export-preview-grid">
+          <div class="export-stat">
+            <span>True Net</span>
+            <strong id="export-prev-net" class="text-accept">$0.00</strong>
+          </div>
+          <div class="export-stat">
+            <span>Gross Income</span>
+            <strong id="export-prev-gross">$0.00</strong>
+          </div>
+          <div class="export-stat">
+            <span>Driven Miles</span>
+            <strong id="export-prev-miles">0.0 mi</strong>
+          </div>
+          <div class="export-stat">
+            <span>Veh. Cost</span>
+            <strong id="export-prev-cost">$0.00</strong>
+          </div>
+          <div class="export-stat">
+            <span>IRS Mileage Ref</span>
+            <strong id="export-prev-irs">$0.00</strong>
+          </div>
+          <div class="export-stat">
+            <span>Active Days</span>
+            <strong id="export-prev-days">0</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="export-actions">
+        <button id="download-orders-csv-btn" type="button" class="btn btn-primary" disabled>
+          Export Orders CSV
+        </button>
+        <div class="export-actions-secondary">
+          <button id="download-tax-csv-btn" type="button" class="btn btn-secondary" disabled>
+            Tax Daily Summary CSV
+          </button>
+          <button id="download-json-btn" type="button" class="btn btn-secondary" disabled>
+            Full Backup JSON
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

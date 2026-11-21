@@ -343,13 +343,304 @@ export function summarizeSession(orders = []) {
 }
 
 /**
- * Convert logged orders to a clean RFC-4180 CSV string for spreadsheet export.
+ * Convert a Date or ISO string into a local calendar date key (YYYY-MM-DD).
+ * Ensures daily sessions roll over at local midnight (12:00 AM).
+ * @param {Date|string|number} [dateInput]
+ * @returns {string}
+ */
+export function toLocalDateKey(dateInput = new Date()) {
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Parse a YYYY-MM-DD key into a local Date at 00:00:00 (avoids UTC offset shifts).
+ * @param {string} dateKey
+ * @returns {Date|null}
+ */
+export function parseLocalDateKey(dateKey) {
+  if (typeof dateKey !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return null;
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/**
+ * Resolve the local session date key (YYYY-MM-DD) for an order record.
+ * Supports both new orders (with explicit sessionDate) and legacy orders.
+ * @param {object} order
+ * @returns {string}
+ */
+export function getOrderDateKey(order) {
+  if (order?.sessionDate && /^\d{4}-\d{2}-\d{2}$/.test(order.sessionDate)) {
+    return order.sessionDate;
+  }
+  return toLocalDateKey(order?.timestamp);
+}
+
+/**
+ * Return Sunday-to-Saturday week bounds for a local YYYY-MM-DD date key.
+ * @param {string} dateKey
+ */
+export function getWeekBounds(dateKey) {
+  const d = parseLocalDateKey(dateKey);
+  if (!d) return { weekStartKey: '', weekEndKey: '' };
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay());
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+  return {
+    weekStartKey: toLocalDateKey(start),
+    weekEndKey: toLocalDateKey(end)
+  };
+}
+
+/**
+ * Format a local YYYY-MM-DD date key into a short human-readable label.
+ * @param {string} dateKey
+ * @param {string} [todayKey]
+ */
+export function formatDateKeyLabel(dateKey, todayKey = toLocalDateKey()) {
+  const d = parseLocalDateKey(dateKey);
+  if (!d) return dateKey || 'Unknown Date';
+  const base = d.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+  if (dateKey === todayKey) {
+    const short = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    return `Today · ${short}`;
+  }
+  return base;
+}
+
+/**
+ * Format a YYYY-MM month key into "November 2026".
+ * @param {string} monthKey
+ */
+export function formatMonthKeyLabel(monthKey) {
+  if (typeof monthKey !== 'string' || !/^\d{4}-\d{2}$/.test(monthKey)) return monthKey;
+  const [y, m] = monthKey.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+/**
+ * Format a start/end YYYY-MM-DD pair into a concise week range label.
+ * @param {string} startKey
+ * @param {string} endKey
+ */
+export function formatRangeLabel(startKey, endKey) {
+  const s = parseLocalDateKey(startKey);
+  const e = parseLocalDateKey(endKey);
+  if (!s || !e) return `${startKey} – ${endKey}`;
+  if (startKey === endKey) {
+    return s.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  const sameYear = s.getFullYear() === e.getFullYear();
+  const sameMonth = sameYear && s.getMonth() === e.getMonth();
+  const sFmt = s.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' })
+  });
+  const eFmt = e.toLocaleDateString(undefined, {
+    ...(sameMonth ? {} : { month: 'short' }),
+    day: 'numeric',
+    year: 'numeric'
+  });
+  return `${sFmt} – ${eFmt}`;
+}
+
+/**
+ * Filter orders whose local session date falls inclusively within [startKey, endKey].
+ * @param {Array<object>} orders
+ * @param {string|null} startKey
+ * @param {string|null} endKey
+ */
+export function filterOrdersByDateRange(orders = [], startKey = null, endKey = null) {
+  return orders.filter((o) => {
+    const k = getOrderDateKey(o);
+    if (!k) return false;
+    if (startKey && k < startKey) return false;
+    if (endKey && k > endKey) return false;
+    return true;
+  });
+}
+
+/**
+ * Build a sorted, collapsible tree of sessions for the requested view mode.
+ *   - 'daily'   -> [Day -> Orders]
+ *   - 'weekly'  -> [Week -> Day -> Orders]
+ *   - 'monthly' -> [Month -> Week (clamped to month) -> Day -> Orders]
+ *   - 'yearly'  -> [Year -> Month -> Week (clamped to month) -> Day -> Orders]
+ *
+ * Every node includes { id, level, label, sublabel, startKey, endKey, dayCount, summary, orders, children }.
+ *
+ * @param {Array<object>} orders
+ * @param {'daily'|'weekly'|'monthly'|'yearly'} [viewMode='daily']
+ * @param {string} [todayKey]
+ */
+export function groupOrdersHierarchy(orders = [], viewMode = 'daily', todayKey = toLocalDateKey()) {
+  const byDay = new Map();
+  for (const o of orders) {
+    const dayKey = getOrderDateKey(o);
+    if (!dayKey) continue;
+    if (!byDay.has(dayKey)) byDay.set(dayKey, []);
+    byDay.get(dayKey).push(o);
+  }
+
+  // Sort orders within each day newest-first
+  for (const list of byDay.values()) {
+    list.sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
+  }
+
+  const sortedDayKeys = Array.from(byDay.keys()).sort((a, b) => b.localeCompare(a));
+
+  const makeDayNode = (dayKey, idPrefix = '') => {
+    const dayOrders = byDay.get(dayKey) || [];
+    const summary = summarizeSession(dayOrders);
+    return {
+      id: `${idPrefix}day:${dayKey}`,
+      level: 'day',
+      label: formatDateKeyLabel(dayKey, todayKey),
+      sublabel: dayKey === todayKey ? 'Active session · ends 12:00 AM' : 'Ended 12:00 AM',
+      startKey: dayKey,
+      endKey: dayKey,
+      dayCount: 1,
+      isToday: dayKey === todayKey,
+      summary,
+      orders: dayOrders,
+      children: []
+    };
+  };
+
+  if (viewMode === 'daily') {
+    return sortedDayKeys.map((dk) => makeDayNode(dk));
+  }
+
+  const buildWeekNodes = (dayKeys, clampStart = null, clampEnd = null, idPrefix = '') => {
+    const byWeek = new Map();
+    for (const dk of dayKeys) {
+      const { weekStartKey, weekEndKey } = getWeekBounds(dk);
+      const effStart = clampStart && weekStartKey < clampStart ? clampStart : weekStartKey;
+      const effEnd = clampEnd && weekEndKey > clampEnd ? clampEnd : weekEndKey;
+      const wKey = `${effStart}_${effEnd}`;
+      if (!byWeek.has(wKey)) {
+        byWeek.set(wKey, { startKey: effStart, endKey: effEnd, dayKeys: [] });
+      }
+      byWeek.get(wKey).dayKeys.push(dk);
+    }
+
+    return Array.from(byWeek.values())
+      .sort((a, b) => b.startKey.localeCompare(a.startKey))
+      .map((w) => {
+        const children = w.dayKeys
+          .sort((a, b) => b.localeCompare(a))
+          .map((dk) => makeDayNode(dk, `${idPrefix}w:${w.startKey}|`));
+        const allOrders = children.flatMap((c) => c.orders);
+        return {
+          id: `${idPrefix}week:${w.startKey}_${w.endKey}`,
+          level: 'week',
+          label: `Week · ${formatRangeLabel(w.startKey, w.endKey)}`,
+          sublabel: `${children.length} ${children.length === 1 ? 'day' : 'days'}`,
+          startKey: w.startKey,
+          endKey: w.endKey,
+          dayCount: children.length,
+          summary: summarizeSession(allOrders),
+          orders: allOrders,
+          children
+        };
+      });
+  };
+
+  if (viewMode === 'weekly') {
+    return buildWeekNodes(sortedDayKeys);
+  }
+
+  const buildMonthNodes = (dayKeys, idPrefix = '') => {
+    const byMonth = new Map();
+    for (const dk of dayKeys) {
+      const mKey = dk.slice(0, 7);
+      if (!byMonth.has(mKey)) byMonth.set(mKey, []);
+      byMonth.get(mKey).push(dk);
+    }
+
+    return Array.from(byMonth.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([mKey, mDays]) => {
+        const [y, m] = mKey.split('-').map(Number);
+        const monthStart = `${mKey}-01`;
+        const monthEnd = toLocalDateKey(new Date(y, m, 0));
+        const children = buildWeekNodes(mDays, monthStart, monthEnd, `${idPrefix}m:${mKey}|`);
+        const allOrders = children.flatMap((c) => c.orders);
+        return {
+          id: `${idPrefix}month:${mKey}`,
+          level: 'month',
+          label: formatMonthKeyLabel(mKey),
+          sublabel: `${mDays.length} ${mDays.length === 1 ? 'day' : 'days'}`,
+          startKey: monthStart,
+          endKey: monthEnd,
+          dayCount: mDays.length,
+          summary: summarizeSession(allOrders),
+          orders: allOrders,
+          children
+        };
+      });
+  };
+
+  if (viewMode === 'monthly') {
+    return buildMonthNodes(sortedDayKeys);
+  }
+
+  // 'yearly'
+  const byYear = new Map();
+  for (const dk of sortedDayKeys) {
+    const yKey = dk.slice(0, 4);
+    if (!byYear.has(yKey)) byYear.set(yKey, []);
+    byYear.get(yKey).push(dk);
+  }
+
+  return Array.from(byYear.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([yKey, yDays]) => {
+      const children = buildMonthNodes(yDays, `y:${yKey}|`);
+      const allOrders = children.flatMap((c) => c.orders);
+      return {
+        id: `year:${yKey}`,
+        level: 'year',
+        label: `${yKey} Tax Year`,
+        sublabel: `${children.length} ${children.length === 1 ? 'month' : 'months'} · ${yDays.length} ${yDays.length === 1 ? 'day' : 'days'}`,
+        startKey: `${yKey}-01-01`,
+        endKey: `${yKey}-12-31`,
+        dayCount: yDays.length,
+        summary: summarizeSession(allOrders),
+        orders: allOrders,
+        children
+      };
+    });
+}
+
+function escapeCSVCell(val) {
+  const str = val === null || val === undefined ? '' : String(val);
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+/**
+ * Convert logged orders to a clean RFC-4180 CSV string for spreadsheet / tax export.
  * @param {Array<object>} orders
  * @returns {string}
  */
 export function ordersToCSV(orders = []) {
   const headers = [
-    'Timestamp',
+    'Session Date',
+    'Local Time',
+    'Timestamp (ISO)',
     'Platform',
     'Verdict',
     'Gross Pay ($)',
@@ -370,20 +661,22 @@ export function ordersToCSV(orders = []) {
     'Notes'
   ];
 
-  const escapeCell = (val) => {
-    const str = val === null || val === undefined ? '' : String(val);
-    if (/[",\n\r]/.test(str)) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  };
-
   const rows = orders.map((o) => {
     const drivenMiles = o.effectiveMiles ?? o.miles ?? 0;
     const offerMiles = o.offerMiles ?? (o.roundTrip ? drivenMiles / 2 : drivenMiles);
     const tripType = o.roundTrip ? 'Round Trip (2x)' : 'One-Way (1x)';
+    const sessionDate = getOrderDateKey(o);
+    let localTime = '';
+    if (o.timestamp) {
+      const d = new Date(o.timestamp);
+      if (!Number.isNaN(d.getTime())) {
+        localTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    }
 
     return [
+      sessionDate,
+      localTime,
       o.timestamp || '',
       o.platform || '',
       (o.verdict || '').toUpperCase(),
@@ -403,10 +696,69 @@ export function ordersToCSV(orders = []) {
       o.netPerHour !== null && o.netPerHour !== undefined ? o.netPerHour.toFixed(2) : '',
       (o.irsDeductionRef ?? 0).toFixed(2),
       o.notes || ''
-    ].map(escapeCell).join(',');
+    ].map(escapeCSVCell).join(',');
   });
 
   return [headers.join(','), ...rows].join('\n');
+}
+
+/**
+ * Convert orders in a timeframe into a tax-ready Daily Summary CSV with a TOTAL row.
+ * @param {Array<object>} orders
+ * @returns {string}
+ */
+export function dailySummaryToCSV(orders = []) {
+  const headers = [
+    'Session Date',
+    'Orders',
+    'Driven Miles',
+    'Timed Mins',
+    'Gross Income ($)',
+    'Gas Cost ($)',
+    'Maintenance Reserve ($)',
+    'Total Vehicle Cost ($)',
+    'True Net Profit ($)',
+    'Avg Net $/Mile',
+    'Avg Net $/Hour',
+    'IRS Mileage Deduction Ref ($)'
+  ];
+
+  const dayNodes = groupOrdersHierarchy(orders, 'daily').reverse(); // chronological for tax ledger
+  const rows = dayNodes.map((day) => {
+    const s = day.summary;
+    return [
+      day.startKey,
+      String(s.count),
+      s.totalMiles.toFixed(2),
+      s.totalMinutes > 0 ? String(s.totalMinutes) : '',
+      s.grossPay.toFixed(2),
+      s.gasCost.toFixed(2),
+      s.maintenanceCost.toFixed(2),
+      s.vehicleOperatingCost.toFixed(2),
+      s.trueNetPay.toFixed(2),
+      s.totalMiles > 0 ? s.avgNetPerMile.toFixed(2) : '',
+      s.avgNetPerHour !== null ? s.avgNetPerHour.toFixed(2) : '',
+      s.irsDeductionRef.toFixed(2)
+    ].map(escapeCSVCell).join(',');
+  });
+
+  const grand = summarizeSession(orders);
+  const totalRow = [
+    'TOTAL',
+    String(grand.count),
+    grand.totalMiles.toFixed(2),
+    grand.totalMinutes > 0 ? String(grand.totalMinutes) : '',
+    grand.grossPay.toFixed(2),
+    grand.gasCost.toFixed(2),
+    grand.maintenanceCost.toFixed(2),
+    grand.vehicleOperatingCost.toFixed(2),
+    grand.trueNetPay.toFixed(2),
+    grand.totalMiles > 0 ? grand.avgNetPerMile.toFixed(2) : '',
+    grand.avgNetPerHour !== null ? grand.avgNetPerHour.toFixed(2) : '',
+    grand.irsDeductionRef.toFixed(2)
+  ].map(escapeCSVCell).join(',');
+
+  return [headers.join(','), ...rows, totalRow].join('\n');
 }
 
 /**
