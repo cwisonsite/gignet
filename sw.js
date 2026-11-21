@@ -1,11 +1,11 @@
-const CACHE_NAME = 'gignet-cache-v2';
+const CACHE_NAME = 'gignet-cache-v3';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css',
+  './styles.css?v=3',
   './calculator.js',
   './storage.js',
-  './app.js',
+  './app.js?v=3',
   './manifest.json',
   './icon.svg'
 ];
@@ -29,7 +29,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-cache' })
       .then((response) => {
         if (response && response.ok && response.type === 'basic') {
           const clone = response.clone();
